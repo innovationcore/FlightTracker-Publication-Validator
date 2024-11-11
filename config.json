@@ -1,0 +1,31 @@
+{
+    "name": "Flight Tracker Publication Validator",
+    "description": "A tool which creates surveys linking service requests with possible publications impacted, and then allows for verification from a researcher.",
+    "namespace": "CAAIModules\\PublicationValidator",
+    "framework-version": 12,
+    "authors": [
+        {
+            "name": "Noah Perry",
+            "email": "noah.perry@uky.edu",
+            "institution": "University of Kentucky - CAAI"
+        }
+    ],
+    "project-settings": [
+        {
+            "key": "api-key-desc",
+            "name": "Please provide the API key(s) for cohorts of publications from Flight Tracker.",
+            "required": true,
+            "type": "sub_settings",
+            "repeatable": false,
+            "sub_settings": [
+                {
+                    "key": "cohort-api-key",
+                    "name": "Cohort API Key",
+                    "required": false,
+                    "type": "text",
+                    "repeatable": true
+                }
+            ]
+        }
+    ]
+}

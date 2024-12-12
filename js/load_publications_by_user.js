@@ -2,7 +2,12 @@ const all_records = {}; // Stores all citation data grouped by user and year
 
 console.log('script loaded');
 
-function insertChoice(citation) {
+function insertChoice(id, citation) {
+    //let textarea = document.querySelector(`textarea[id^=${id}]>`);
+    let textarea = document.getElementById(id);
+    console.log(textarea);
+    textarea.value = citation;
+    console.log(id);
     console.log(citation);
 }
 
@@ -96,6 +101,8 @@ document.addEventListener('DOMContentLoaded', async function () {
 
         // Update the survey rows with user citations
         document.querySelectorAll('tr[id^="supported_pubs_yr"]').forEach(row => {
+            let row_id = row.id;
+            row_id = row_id.split('-')[0];
             row.style.backgroundColor = '#f9f9f9';
 
             const dataCell = row.querySelector('td.data.col-5');
@@ -104,8 +111,9 @@ document.addEventListener('DOMContentLoaded', async function () {
                 Object.entries(user_citations).forEach(([year, citations]) => {
                     citations.forEach(citation => {
                         const customElement = document.createElement('div');
+                        // Update below to get an ID from somewhere that shows you the correct table.
                         customElement.innerHTML = `
-                            <input id="${citation}" type="checkbox" onclick="insertChoice(this.id)">
+                            <input id="${citation}" type="checkbox" onclick="insertChoice('supported_pubs_yr1_v2', this.id)">
                             <label class="mc" for="${citation}">${citation} (${year})</label>
                         `;
                         dataCell.appendChild(customElement);

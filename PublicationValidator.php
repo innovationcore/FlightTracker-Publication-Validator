@@ -1,92 +1,163 @@
 <?php
-
 namespace CAAIModules\PublicationValidator;
 
 use ExternalModules\AbstractExternalModule;
-use ExternalModules\ExternalModules;
 use REDCap;
 
 class PublicationValidator extends AbstractExternalModule {
-
-    // provided courtesy of Scott J. Pearson
-    private static function isExternalModulePage() {
-		$page = isset($_SERVER['PHP_SELF']) ? $_SERVER['PHP_SELF'] : "";
-		if (preg_match("/ExternalModules\/manager\/project.php/", $page)) {
-			return TRUE;
-		}
-		if (preg_match("/ExternalModules\/manager\/ajax\//", $page)) {
-			return TRUE;
-		}
-		if (preg_match("/external_modules\/manager\/project.php/", $page)) {
-			return TRUE;
-		}
-		if (preg_match("/external_modules\/manager\/ajax\//", $page)) {
-			return TRUE;
-		}
-		return FALSE;
-	}
-
-    private static function isRecordStatusDashboardPage() {
-        $page = isset($_SERVER['PHP_SELF']) ? $_SERVER['PHP_SELF'] : "";
-        if (preg_match("/DataEntry\/record_status_dashboard.php/", $page)) {
-            return TRUE;
-        }
-        return FALSE;
+    function getRedcapApiUrl() {
+        // Construct the API URL dynamically
+        $apiUrl = APP_PATH_WEBROOT_FULL . 'api/';
+        return $apiUrl;
     }
 
-    /*private static function isSurveyPage() {
-        $page = isset($_SERVER['PHP_SELF']) ? $_SERVER['PHP_SELF'] : "";
-        if (preg_match("/ExternalModules\/manager\/project.php/", $page)) {
-            return TRUE;
-        }
-        if (preg_match("/ExternalModules\/manager\/ajax\//", $page)) {
-            return TRUE;
-        }
-        if (preg_match("/external_modules\/manager\/project.php/", $page)) {
-            return TRUE;
-        }
-        if (preg_match("/external_modules\/manager\/ajax\//", $page)) {
-            return TRUE;
-        }
-        return FALSE;
-    }*/
-
-    function redcap_every_page_top($project_id) {
-        if (self::isRecordStatusDashboardPage()){
-            $project_id = $_GET['pid']; // or however you're getting the project ID
-            $service_requests = REDCap::getData($project_id, 'json-array');
-            $form = $this->getProjectSetting('form-id');
-            $apis = $this->getProjectSetting('cohort-api-key');
-            $citations = [];
-            $project_title = REDCap::getProjectTitle();
-            ?>
-                <script>
-                    const apis = <?= json_encode($apis) ?>;
-                    const serviceRequests = <?= json_encode($service_requests) ?>;
-                    const cohortAPIs = <?= json_encode($apis)?>;
-                </script>
-            <script src="<?= $this->getUrl('js/load_publications.js') ?>"></script>
-            <?php
-        }
-
-        if (self::isExternalModulePage()) {
-            $project_id = $_GET['pid']; // or however you're getting the project ID
-            $whole_data = REDCap::getData($project_id, 'json-array');
-            $form = $this->getProjectSetting('form-id');
-            $cohorts = $this->getProjectSetting('cohort-api-key');
-            $citations = [];
-            $project_title = REDCap::getProjectTitle();
-
+    // Hook to modify survey display
+    function redcap_survey_page_top($project_id, $record, $instrument, $event_id, $group_id, $repeat_instance) {
+        if ($instrument === 'pub_validator') {
             ?>
             <script>
-                const wholeData = <?= json_encode($whole_data) ?>;
-                const cohortAPIs = <?= json_encode($cohorts)?>;
-                console.log(wholeData);
-                console.log(cohortAPIs);
-            </script>
+            // Modify survey submit to capture custom mapping data
+            $(document).ready(function() {
+                // Intercept survey submit
+                $('form[name="form"]').on('submit', function(e) {
+                    // Collect all publication mappings
+                    var publicationMappings = {};
 
-            <script src="<?= $this->getUrl('js/cohort_sort.js') ?>"></script>
+                    // Find all service request mapping selects
+                    $('.service-request-publications').each(function() {
+                        var serviceRequestId = $(this).attr('id').replace('service_request_', '');
+                        var selectedPublications = $(this).val() || [];
+
+                        publicationMappings[serviceRequestId] = selectedPublications;
+                    });
+
+                    // Add hidden field to submit the mappings
+                    $('<input>')
+                        .attr('type', 'hidden')
+                        .attr('name', 'publication_mappings')
+                        .val(JSON.stringify(publicationMappings))
+                        .appendTo($(this));
+                });
+            });
+
+            // Dynamic population of publication choices
+            function populatePublicationChoices() {
+                // Use global serviceRequests from previous JavaScript
+                serviceRequests.forEach(function(request) {
+                    var requestYear = request.year; // Adjust based on your data structure
+                    var requestId = request.id;
+
+                    // Find publications after the request year
+                    var eligiblePublications = Object.values(all_records).flatMap(function(user) {
+                        return Object.entries(user.citations)
+                            .filter(function(entry) {
+                                return parseInt(entry[0]) >= parseInt(requestYear);
+                            })
+                            .flatMap(function(entry) {
+                                var year = entry[0];
+                                return entry[1].map(function(citation, index) {
+                                    return {
+                                        year: year,
+                                        citation: citation,
+                                        uniqueId: user.record_id + '_' + year + '_' + index
+                                    };
+                                });
+                            });
+                    });
+
+                    // Create select element for each service request
+                    var selectHtml = '<div class="form-group">' +
+                        '<label for="service_request_' + requestId + '">' +
+                        'Service Request: ' + request.question +
+                        '</label>' +
+                        '<select id="service_request_' + requestId + '" ' +
+                        'name="service_request_' + requestId + '" ' +
+                        'multiple="multiple" ' +
+                        'class="service-request-publications form-control">' +
+                        eligiblePublications.map(function(pub) {
+                            return '<option value="' + pub.uniqueId + '">' +
+                                '[' + pub.year + '] ' + pub.citation +
+                                '</option>';
+                        }).join('') +
+                        '</select>' +
+                        '</div>';
+
+                    // Append to a container in your form
+                    $('#publication-mapping-container').append(selectHtml);
+                });
+
+                // Initialize select2 or any multi-select plugin if desired
+                $('.service-request-publications').select2({
+                    placeholder: 'Select publications',
+                    allowClear: true
+                });
+            }
+
+            // Run population when document is ready
+            $(document).ready(function() {
+                populatePublicationChoices();
+            });
+            </script>
             <?php
+            // Add a container for dynamic publication mapping
+            echo '<div id="publication-mapping-container"></div>';
+        }
+    }
+
+    function redcap_survey_page($project_id, $record, $instrument, $event_id, $group_id, $survey_hash, $response_id, $repeat_instance) {
+        $selected_instrument = $this->getProjectSetting('validation_form');
+        $apis = $this->getProjectSetting('cohort-api-key');
+        $apis = $apis[0]; // it returns a nested array with one element, this gets the element which has the keys
+        $api_url = $this->getRedcapApiUrl();
+
+        if ($instrument === $selected_instrument) {
+            // get the script from url since surveys page doesn't have direct access to modules
+            $script_url = $this->getUrl('js/load_publications_by_user.js', true, true);
+            ?>
+                <script>
+                    const api_keys = <?= json_encode($apis) ?>;
+                    console.log(api_keys)
+                    const api_url = <?= json_encode($api_url) ?>;
+                    console.log(<?= json_encode($selected_instrument) ?>)
+                </script>
+                <script src="<?= $script_url ?>"></script>
+            <?php
+        }
+    }
+
+    // Save survey response with publication mappings
+    function redcap_survey_complete($project_id, $record, $instrument, $event_id, $group_id, $survey_hash, $repeat_instance) {
+        $selected_instrument = $this->getProjectSetting('validation_form');
+        if ($instrument === $selected_instrument) {
+            // Retrieve submitted publication mappings
+            $publicationMappings = isset($_POST['publication_mappings']) 
+                ? json_decode($_POST['publication_mappings'], true) 
+                : [];
+
+            // Save mappings
+            $saveData = [
+                $record => [
+                    $event_id => [
+                        'publication_mappings' => json_encode($publicationMappings)
+                    ]
+                ]
+            ];
+
+            // Save the mappings
+            $result = \REDCap::saveData(
+                $project_id, 
+                'array', 
+                $saveData, 
+                'normal', 
+                'YAMLandCSV', 
+                'false', 
+                true
+            );
+
+            // Log any errors
+            if (!empty($result['errors'])) {
+                $this->log('Error saving publication mappings: ' . print_r($result['errors'], true));
+            }
         }
     }
 }

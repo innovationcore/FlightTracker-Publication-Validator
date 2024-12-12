@@ -12,6 +12,12 @@
     ],
     "project-settings": [
         {
+            "key": "validation_form",
+            "name": "Input the Instrument name for the validation form.",
+            "required": true,
+            "type": "text"
+        },
+        {
             "key": "api-key-desc",
             "name": "Please provide the API key(s) for cohorts of publications from Flight Tracker.",
             "required": true,
@@ -20,7 +26,7 @@
             "sub_settings": [
                 {
                     "key": "cohort-api-key",
-                    "name": "Cohort API Key",
+                    "name": "Cohort API Key <div class='api_label'></div>",
                     "required": false,
                     "type": "text",
                     "repeatable": true

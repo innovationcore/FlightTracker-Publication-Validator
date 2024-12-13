@@ -2,13 +2,38 @@ const all_records = {}; // Stores all citation data grouped by user and year
 
 console.log('script loaded');
 
-function insertChoice(id, citation) {
-    //let textarea = document.querySelector(`textarea[id^=${id}]>`);
-    let textarea = document.getElementById(id);
-    console.log(textarea);
-    textarea.value = citation;
+function insertChoice(element, textarea_id) {
+    const id = element.id;
     console.log(id);
-    console.log(citation);
+    const textarea = document.getElementById(textarea_id);
+
+    let selected = textarea.value.trim(); // Get the current value and trim whitespace
+    let selectArray = selected ? selected.split("|") : []; // Convert to array if not empty
+    console.log(selectArray);
+
+    if (!textarea) {
+        console.error(`Textarea with ID ${textarea_id} not found.`);
+        return;
+    }
+
+    if (element.checked) {
+        if (!selectArray.includes(id)) {
+            selectArray.push(id);
+        }
+        console.log('checked!');
+    }
+    else {
+        const index = selectArray.indexOf(id);
+        if (selectArray.includes(id)) {
+            selectArray.splice(index, 1);
+        }
+        console.log('unchecked!');
+    }
+
+    // Update the textarea value with the new array, joined by `|`
+    textarea.value = selectArray.join("|");
+
+    console.log(textarea.value); // Debugging
 }
 
 document.addEventListener('DOMContentLoaded', async function () {
@@ -100,24 +125,28 @@ document.addEventListener('DOMContentLoaded', async function () {
         console.log('User Citations:', user_citations); // Debug: ensure citations are filtered correctly
 
         // Update the survey rows with user citations
-        document.querySelectorAll('tr[id^="supported_pubs_yr"]').forEach(row => {
+        document.querySelectorAll('tr[id^="supported_pubs_"]').forEach(row => {
             let row_id = row.id;
             row_id = row_id.split('-')[0];
-            row.style.backgroundColor = '#f9f9f9';
+            //console.log(row_id);
+            let row_year = row_id.split('_').pop();
 
             const dataCell = row.querySelector('td.data.col-5');
             if (dataCell) {
                 // Loop through available citations for the user
                 Object.entries(user_citations).forEach(([year, citations]) => {
-                    citations.forEach(citation => {
-                        const customElement = document.createElement('div');
-                        // Update below to get an ID from somewhere that shows you the correct table.
-                        customElement.innerHTML = `
-                            <input id="${citation}" type="checkbox" onclick="insertChoice('supported_pubs_yr1_v2', this.id)">
-                            <label class="mc" for="${citation}">${citation} (${year})</label>
-                        `;
-                        dataCell.appendChild(customElement);
-                    });
+                    if (year >= row_year) {
+                        citations.forEach(citation => {
+                            const customElement = document.createElement('div');
+                            // Update below to get an ID from somewhere that shows you the correct table.
+                            console.log(row_id);
+                            customElement.innerHTML = `
+                                <input id="${citation}" type="checkbox" onclick="insertChoice(this, '${row_id}')">
+                                <label class="mc" for="${citation}">${citation} (${year})</label>
+                            `;
+                            dataCell.appendChild(customElement);
+                        });
+                    }
                 });
             }
         });

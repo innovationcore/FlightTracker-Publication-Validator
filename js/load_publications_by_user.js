@@ -1,46 +1,52 @@
 const all_records = {}; // Stores all citation data grouped by user and year
+const selections = {}; // Stores user selections until the end so that they can be saved into the DB as one string with formatting for readability
 
 console.log('script loaded');
 
-function insertChoice(element, textarea_id) {
-    const id = element.id;
-    console.log(id);
-    const textarea = document.getElementById(textarea_id);
+function insertChoice(element_id, textarea_id) {
+    const selected = selections[textarea_id];
 
-    let selected = textarea.value.trim(); // Get the current value and trim whitespace
-    let selectArray = selected ? selected.split("|") : []; // Convert to array if not empty
-    console.log(selectArray);
+    // If selected.length is greater than 0, we need to make sure we don't have duplicate elements
+    if (selected.length > 0) {
+        const index = selected.findIndex(id => id === element_id); // find index, returns -1 if not in the array
 
-    if (!textarea) {
-        console.error(`Textarea with ID ${textarea_id} not found.`);
-        return;
-    }
-
-    if (element.checked) {
-        if (!selectArray.includes(id)) {
-            selectArray.push(id);
+        // If -1, then the element is not there, if it is g.t. we want to remove the element at that index
+        if (index > -1) {
+            selected.splice(index, 1);
         }
-        console.log('checked!');
+        else {
+            selected.push(element_id);
+        }
     }
     else {
-        const index = selectArray.indexOf(id);
-        if (selectArray.includes(id)) {
-            selectArray.splice(index, 1);
-        }
-        console.log('unchecked!');
+        selected.push(element_id);
     }
 
-    // Update the textarea value with the new array, joined by `|`
-    textarea.value = selectArray.join("|");
+    selections[textarea_id] = selected;
+    console.log(selections[textarea_id]);
+}
 
-    console.log(textarea.value); // Debugging
+function setValues() {
+    for (const [key, value] of Object.entries(selections)) {
+        let formatted = value.join(' | ');
+        document.getElementById(key).value = formatted;
+    }
 }
 
 document.addEventListener('DOMContentLoaded', async function () {
     const linkblue_div = document.querySelector('div[data-mlm-type="label"]');
     const linkblue = linkblue_div ? linkblue_div.textContent.trim() : null;
 
-    console.log('Linkblue:', linkblue); // Debug: ensure linkblue is captured correctly
+    console.log('Linkblue:', linkblue); // Debug: ensure linkblue is captured correctly'
+
+    let textAreas = document.getElementsByTagName('textarea');
+    console.log(textAreas)
+    for(let i=0; i<textAreas.length; i++) {
+        console.log(textAreas[i]);
+        if (textAreas[i].name.includes('supported_pubs')) {
+            textAreas[i].classList.add("@HIDDEN");
+        }
+    }
 
     // Function to fetch records for a single API key
     const fetchRecords = (key) => {
@@ -128,8 +134,13 @@ document.addEventListener('DOMContentLoaded', async function () {
         document.querySelectorAll('tr[id^="supported_pubs_"]').forEach(row => {
             let row_id = row.id;
             row_id = row_id.split('-')[0];
+            const textarea = document.getElementById(row_id);
+            //textarea.classList.add('@HIDDEN');
             //console.log(row_id);
             let row_year = row_id.split('_').pop();
+
+            selections[row_id] = []; // we want each row_id as a key in the object
+            console.log(selections);
 
             const dataCell = row.querySelector('td.data.col-5');
             if (dataCell) {
@@ -141,7 +152,7 @@ document.addEventListener('DOMContentLoaded', async function () {
                             // Update below to get an ID from somewhere that shows you the correct table.
                             console.log(row_id);
                             customElement.innerHTML = `
-                                <input id="${citation}" type="checkbox" onclick="insertChoice(this, '${row_id}')">
+                                <input id="${citation}" type="checkbox" onclick="insertChoice(this.id, '${row_id}')">
                                 <label class="mc" for="${citation}">${citation} (${year})</label>
                             `;
                             dataCell.appendChild(customElement);
@@ -149,7 +160,28 @@ document.addEventListener('DOMContentLoaded', async function () {
                     }
                 });
             }
+
+            const submit_row = document.querySelector('tr[class="surveysubmit"]');
+            const testButton = document.createElement('div');
+            //testButton.innerHTML = `<input  type="button" id="test_button" onclick="setValues()">Test</input>`
+            dataCell.appendChild(testButton);
         });
+
+
+
+        // Select the button using its attributes (e.g., `name` or `class`)
+        const submitButton = document.querySelector('button[name="submit-btn-saverecord"]');
+
+        if (submitButton) {
+            // Add extra functionality without overwriting the existing `onclick`
+            const existingOnclick = submitButton.getAttribute('onclick');
+            const newOnclick = `
+            setValues();
+        ` + existingOnclick;
+            //submitButton.onclick = 'setValues();$(this).button("disable");dataEntrySubmit(this);return false;';
+            submitButton.setAttribute('onclick', newOnclick);
+        }
+
     } catch (error) {
         console.error('Error fetching data:', error);
     }
